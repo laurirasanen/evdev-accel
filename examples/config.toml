@@ -1,0 +1,9 @@
+# In-game sens in games like Quake 
+sensitivity = 1.0
+# Amount of acceleration to apply
+accel = 0.03
+# Sensitivity scaling before acceleration
+pre_scale = 1.0
+# Sensitivity scaling after acceleration
+post_scale = 0.05
+
