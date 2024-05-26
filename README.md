@@ -14,6 +14,7 @@ Largely based on [systemofapwne/leetmouse](https://github.com/systemofapwne/leet
 ## TODO
 
 - Add default config if no cfg file
+- Retry on device loss
 - Min/Max accel settings
 - Accel offset
 - Different accel curves
