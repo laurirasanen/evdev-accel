@@ -1,0 +1,7 @@
+[Desktop Entry]
+Type=Application
+Exec=evdev-accel -d "Your Device Here"
+Name=evdev-accel
+Comment=Start evdev-accel
+GenericName=Mouse Acceleration
+Terminal=false
