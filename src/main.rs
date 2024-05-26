@@ -1,4 +1,4 @@
-use core::panic;
+use clap::Parser;
 use evdev::{
     raw_stream::RawDevice, uinput::VirtualDeviceBuilder, EventType, InputEvent, RelativeAxisType,
     Synchronization,
@@ -8,7 +8,15 @@ use figment::{
     Figment,
 };
 use serde::Deserialize;
+use std::io::prelude::*;
 use std::{env, path::Path, time::SystemTime};
+
+#[derive(Parser, Debug)]
+#[command(version, about, long_about = None)]
+struct CliArgs {
+    #[arg(short, long)]
+    device_name: Option<String>,
+}
 
 // TODO default values if no cfg file
 #[derive(Deserialize, Debug)]
@@ -19,33 +27,55 @@ struct Config {
     post_scale: f32,
 }
 
-pub fn pick_device() -> RawDevice {
-    use std::io::prelude::*;
+fn device_valid(device: &RawDevice) -> bool {
+    let axes = device.supported_relative_axes();
+    return axes.map_or(false, |axes| {
+        axes.contains(RelativeAxisType::REL_X) && axes.contains(RelativeAxisType::REL_Y)
+    });
+}
 
-    let mut args = std::env::args_os();
-    args.next();
-    if let Some(dev_file) = args.next() {
-        RawDevice::open(dev_file).unwrap()
-    } else {
-        let mut devices = evdev::raw_stream::enumerate()
-            .map(|t| t.1)
-            .collect::<Vec<_>>();
-        assert!(devices.len() > 0);
-        // readdir returns them in reverse order from their eventN names for some reason
-        devices.reverse();
-        for (i, d) in devices.iter().enumerate() {
-            println!("{}: {}", i, d.name().unwrap_or("Unnamed device"));
-        }
-        print!("Select the device [0-{}]: ", devices.len());
-        let _ = std::io::stdout().flush();
-        let mut chosen = String::new();
-        std::io::stdin().read_line(&mut chosen).unwrap();
-        let n = chosen.trim().parse::<usize>().unwrap();
-        devices.into_iter().nth(n).unwrap()
+fn pick_device(device_name: Option<String>) -> Option<RawDevice> {
+    let devices = evdev::raw_stream::enumerate()
+        .map(|t| t.1)
+        .filter(|d| device_valid(d))
+        .collect::<Vec<_>>();
+
+    if devices.len() == 0 {
+        println!("No valid devices found. Are you in the 'input' user group?");
+        return None;
     }
+
+    // Select by passed name
+    if let Some(name) = device_name {
+        let mut iter = devices.into_iter();
+        let d = iter.find(|d| d.name().unwrap() == name);
+        if d.is_some() {
+            return d;
+        }
+        println!("Couldn't find a valid device named {}", name);
+        for d in iter {
+            println!("Valid devices:");
+            println!("{}", d.name().unwrap_or("Unnamed device"));
+        }
+        return None;
+    }
+
+    // Select interactively
+    for (i, d) in devices.iter().enumerate() {
+        println!("{}: {}", i, d.name().unwrap_or("Unnamed device"));
+    }
+    print!("Select the device [0-{}]: ", devices.len());
+    let _ = std::io::stdout().flush();
+
+    let mut chosen = String::new();
+    std::io::stdin().read_line(&mut chosen).unwrap();
+    let n = chosen.trim().parse::<usize>().unwrap();
+    return Some(devices.into_iter().nth(n).unwrap());
 }
 
 fn main() {
+    let args = CliArgs::parse();
+
     let home_path = env::var_os("HOME").expect("Failed to find HOME path");
     let cfg_path = Path::new(&home_path).join(".config/evdev-accel/config.toml");
     let config: Config = Figment::from(Toml::file(cfg_path))
@@ -53,15 +83,9 @@ fn main() {
         .expect("Failed to load config.toml");
     println!("{config:?}");
 
-    let mut device = pick_device();
+    let mut device = pick_device(args.device_name).expect("Failed to get device");
+    println!("Device:");
     println!("{device:?}");
-
-    let axes = device.supported_relative_axes();
-    if !axes.map_or(false, |axes| {
-        axes.contains(RelativeAxisType::REL_X) && axes.contains(RelativeAxisType::REL_Y)
-    }) {
-        panic!("Device does not support relative axis");
-    }
 
     device.grab().expect("Could not grab device");
 
