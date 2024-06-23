@@ -12,12 +12,12 @@ Largely based on [systemofapwne/leetmouse](https://github.com/systemofapwne/leet
 - `cargo install --path .`
 - `evdev-accel --help`
 
-See [examples/evdev-accel.desktop](examples/evdev-accel.desktop) for XDG desktop entry.
+See [examples/evdev-accel-service.sh](examples/evdev-accel-service.sh) for auto-retry on device loss.
 
 ## TODO
 
+- XDG desktop entry -- I couldn't get one to work on login, only with manual exec after login
 - Add default config if no cfg file
-- Retry on device loss
 - Min/Max accel settings
 - Accel offset
 - Different accel curves
